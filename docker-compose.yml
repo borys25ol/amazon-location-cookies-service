@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: "uvicorn main.api.app:app --host 0.0.0.0 --port 8000"
+    container_name: amazon-location-web
+    ports:
+      - "8000:8000"
+
+  scrapyrt:
+    build: .
+    command: "scrapyrt --ip 0.0.0.0 --port 7800"
+    container_name: amazon-location-scrapyrt
+    ports:
+      - "7800:7800"
