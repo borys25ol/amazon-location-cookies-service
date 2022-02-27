@@ -10,3 +10,4 @@ logs
 *.db
 .vscode
 .coverage
+/logs
