@@ -3,4 +3,5 @@ furl==2.1.3
 python-dotenv==0.19.2
 requests==2.27.1
 Scrapy==2.5.1
+scrapyrt==0.13.0
 uvicorn==0.17.5

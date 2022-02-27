@@ -2,10 +2,11 @@ import json
 
 import requests
 
+from main.api.config import get_app_settings
 from main.api.schemas.common import Response
 from main.utils import add_query_params
 
-SCRAPY_URL = "http://0.0.0.0:7800/crawl.json"
+settings = get_app_settings()
 
 
 class AmazonLocationService:
@@ -22,7 +23,7 @@ class AmazonLocationService:
                 {"zip_code": zip_code, "country": country_code.lower()}
             ),
         }
-        url = add_query_params(url=SCRAPY_URL, params=query_params)
+        url = add_query_params(url=settings.scrapyrt_url, params=query_params)
         json_data = requests.get(url=url).json()
         cookies = json_data["items"]
         return Response(

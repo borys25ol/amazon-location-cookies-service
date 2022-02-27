@@ -7,3 +7,5 @@ class BaseAppSettings(BaseSettings):
     """
 
     app_env: str = "prod"
+
+    scrapyrt_url: str
