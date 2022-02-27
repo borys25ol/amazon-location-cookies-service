@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
 from main.api.config import get_app_settings
+from main.api.exceptions import (
+    add_internal_exception_handler,
+    add_validation_exception_handler,
+)
 from main.api.router import router as api_router
 
 
@@ -27,3 +31,6 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+add_validation_exception_handler(app=app)
+add_internal_exception_handler(app=app)
