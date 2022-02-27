@@ -3,7 +3,8 @@ import json
 import requests
 
 from main.api.config import get_app_settings
-from main.api.schemas.common import Response
+from main.api.exceptions import CookiesNotFoundException
+from main.api.schemas.common import Response, ScrapingRequest
 from main.utils import add_query_params
 
 settings = get_app_settings()
@@ -15,22 +16,32 @@ class AmazonLocationService:
     """
 
     @staticmethod
-    def get_cookies(zip_code: str, country_code: str) -> Response:
+    def get_cookies(data: ScrapingRequest) -> Response:
+        """
+        Get amazon cookies.
+        """
         query_params = {
             "start_requests": "1",
             "spider_name": "amazon:location-session",
             "crawl_args": json.dumps(
-                {"zip_code": zip_code, "country": country_code.lower()}
+                {"zip_code": data.zip_code, "country": data.country_code.lower()}
             ),
         }
         url = add_query_params(url=settings.scrapyrt_url, params=query_params)
         json_data = requests.get(url=url).json()
-        cookies = json_data["items"]
+        if not json_data["items"][0]:
+            raise CookiesNotFoundException(
+                message=(
+                    f"Cookies for zip code: `{data.zip_code}` "
+                    f"and region: `{data.country_code}` not found"
+                ),
+                status_code=404,
+            )
         return Response(
             success=True,
             data={
-                "zip_code": zip_code,
-                "country_code": country_code,
-                "cookies": cookies[0],
+                "zip_code": data.zip_code,
+                "country_code": data.country_code,
+                "cookies": json_data["items"][0],
             },
         )
