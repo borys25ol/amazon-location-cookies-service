@@ -1,0 +1,49 @@
+default_stages:
+- commit
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v3.4.0
+  hooks:
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+    - id: check-yaml
+    - id: mixed-line-ending
+    - id: check-case-conflict
+    - id: requirements-txt-fixer
+
+- repo: https://gitlab.com/pycqa/flake8
+  rev: 3.8.4
+  hooks:
+    - id: flake8
+      additional_dependencies:
+      - wemake-python-styleguide==0.15.2
+      - flake8-builtins==1.5.2
+      - flake8-annotations-complexity==0.0.4
+      - flake8-class-attributes-order==0.1.0
+      - flake8-cognitive-complexity==0.0.2
+
+- repo: local
+  hooks:
+    - id: mypy
+      name: mypy
+      pass_filenames: false
+      language: python
+      entry: bash -c 'make types'
+
+- repo: https://github.com/psf/black
+  rev: 21.4b0
+  hooks:
+    - id: black
+      language_version: python
+
+- repo: https://github.com/PyCQA/isort
+  rev: 5.8.0
+  hooks:
+    - id: isort
+
+- repo: https://github.com/asottile/pyupgrade
+  rev: v2.13.0
+  hooks:
+    - id: pyupgrade
+      args: [--py38-plus]
