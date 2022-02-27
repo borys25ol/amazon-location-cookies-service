@@ -1,16 +1,18 @@
-Scraping Module API
+Amazon Location Cookies
 ====================
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://github.com/tiangolo/fastapi)
-
-![Deploy prod workflow](https://github.com/Simporter/scraping-module-api/actions/workflows/deploy_prod.yml/badge.svg)
-![Run linters](https://github.com/Simporter/scraping-module-api/actions/workflows/run_linters.yml/badge.svg)
+[![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 [![Pre-commit: enabled](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white&style=flat)](https://github.com/pre-commit/pre-commit)
-[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg?style=flat)](https://github.com/nedbat/coveragepy)
+
+## Description
+
+This project can be used to get Amazon location cookies from specific Amazon `Zip-Code` and country-specific domains like `.de`, `.co.uk`, etc.
+
+It will be very helpful when you are using random geolocation proxies for scraping data from Amazon because Amazon returns content based on user IP.
 
 Developing
 -----------
@@ -29,6 +31,7 @@ You can also use these commands during dev process:
 
       $ make types
 
+
 Configuration
 --------------
 
@@ -36,36 +39,9 @@ Replace `.env.example` with real `.env`, changing placeholders
 
 ```
 SECRET_KEY=changeme
-
-MONGO_DB=<mongo-database>
-MONGO_HOST=<mongo-host>
-MONGO_PORT=<mongo-host>
-MONGO_USER=<mongo-username>
-MONGO_PASSWORD=<mongo-password>
-MONGO_AUTH_SOURCE=<mongo-auth-source>
-MONGO_TASKS_COLLECTION=<mongo-collection>
-MONGO_USERS_COLLECTION=<mongo-collection>
-
-ELASTIC_HOST=<elastic-host>
-ELASTIC_PORT=<elastic-port>
-
-SCRAPYD_API_URL=<scrapyd-api-url>
-SCRAPYD_API_NODE=<scrapyd-api-node>
-
-RUN_BACKGROUND_TASKS=<1|0>
-SCHEDULER_TASK_INTERVAL=<seconds-interval>
-
-MAX_CONCURRENT_SUBTASKS=<max-parallel-tasks>
-
-GRAYLOG_HOST=<graylog-host>
-GRAYLOG_INPUT_PORT=<graylog-port>
-
-SENTRY_DSN=<sentry-dsn>
-
-GOOGLE_CLOUD_CREDENTIALS=<path-to-json-file>
-GOOGLE_CLOUD_PROJECT_ID=<google-project-id>
-GOOGLE_CLOUD_BUCKET=<google-bucket>
+SCRAPYRT_URL=http://scrapyrt:7800/crawl.json
 ```
+
 
 Local install
 -------------
@@ -83,37 +59,48 @@ For remove virtualenv:
 
 Local run
 -------------
-Export path to Environment Variables:
+Run spider locally:
+
+    
+    $  scrapy crawl amazon:location-session -a country=US -a zip_code=30322
 
 
-    $ export PYTHONPATH='.'
+Run using local ScrapyRT service:
 
-Run server with test settings:
-
-
-    $ make runserver-test
-
-Run server with dev settings:
+    $  scrapyrt --ip 0.0.0.0 --port 7800
+    $  curl http://0.0.0.0:7800/crawl.json?start_requests=1&spider_name=amazon:location-session&crawl_args={"zip_code":"30332","country":"US"}
 
 
-    $ make runserver-dev
+Run docker containers:
 
-Run server with prod settings:
-
-
-    $ make runserver-prod
-
-If everything is fine, check this endpoint:
+    $  make docker_up
 
 
-    $ curl -X "GET" http://host:port/api/v1/status
+Check extracted amazon location cookies from python script:
+```python
+import re
 
-Expected result:
+import requests
 
-```
-{
-  "success": true,
-  "version": "<version>",
-  "message": "Scraping Module API"
-}
+
+def main():
+    # E1 6AN - London postal code
+    api_url = "http://127.0.0.1:8000/api/v1/cookies?zip_code=E1+6AN&country_code=UK"
+    amazon_url = "https://amazon.co.uk/"
+    default_headers = {"user-agent": "user-agent"}
+
+    json_data = requests.get(url=api_url).json()
+    cookies = json_data["data"]["cookies"]
+
+    amazon_response = requests.get(
+        url=amazon_url, cookies=cookies, headers=default_headers
+    )
+    location = re.search(r'(?s)glow-ingress-line2">(.+?)<', amazon_response.text)
+    print(location.group(1).strip())
+
+
+if __name__ == "__main__":
+    main()
+
+
 ```
