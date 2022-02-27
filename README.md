@@ -61,7 +61,7 @@ Local run
 -------------
 Run spider locally:
 
-    
+
     $  scrapy crawl amazon:location-session -a country=US -a zip_code=30322
 
 
