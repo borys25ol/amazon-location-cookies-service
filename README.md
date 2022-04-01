@@ -87,6 +87,7 @@ Check extracted amazon location cookies from python script:
 ```python
 import re
 from time import sleep
+from typing import Dict
 
 import requests
 
@@ -102,24 +103,44 @@ COUNTRY_CONFIG = {
     "IT": {"zip_code": "20162", "amazon_url": "https://amazon.it"},
 }
 
+LOCATION_REGEX = r'(?s)glow-ingress-line2">(.+?)<'
 
-def main():
+
+def get_location_cookies(country: str, zip_code: str) -> Dict[str, str]:
+    """
+    Make request to Amazon Location Cookies service for getting location cookies.
+    """
+    api_url = API_URL.format(zip_code=zip_code, country_code=country)
+    json_data = requests.get(url=api_url).json()
+    cookies = json_data["data"]["cookies"]
+    return cookies
+
+
+def check_location_cookies(amazon_url: str, cookies: Dict[str, str]) -> str:
+    """
+    Make request to country specific Amazon url with location cookies.
+    """
+    amazon_response = requests.get(url=amazon_url, cookies=cookies, headers=HEADERS)
+    location = re.search(LOCATION_REGEX, amazon_response.text)
+    return location.group(1).strip()
+
+
+def main() -> None:
+    """
+    Project entry point.
+    """
     for country in COUNTRY_CONFIG:
         print("Check cookies for country: ", country)
-        api_url = API_URL.format(
-            zip_code=COUNTRY_CONFIG[country]["zip_code"], country_code=country
-        )
-        json_data = requests.get(url=api_url).json()
-        cookies = json_data["data"]["cookies"]
-        amazon_response = requests.get(
-            url=COUNTRY_CONFIG[country]["amazon_url"], cookies=cookies, headers=HEADERS,
-        )
-        location = re.search(r'(?s)glow-ingress-line2">(.+?)<', amazon_response.text)
-        print("Response: ", location.group(1).strip())
+        amazon_url = COUNTRY_CONFIG[country]["amazon_url"]
+        zip_code = COUNTRY_CONFIG[country]["zip_code"]
+
+        # Extract cookies via Amazon Location Service.
+        cookies = get_location_cookies(country=country, zip_code=zip_code)
+        print("Got Amazon cookies: ", cookies)
+
+        # Check response using location cookies.
+        response = check_location_cookies(amazon_url=amazon_url, cookies=cookies)
+        print("Amazon response: ", response)
         sleep(5)
-
-
-if __name__ == "__main__":
-    main()
 
 ```
