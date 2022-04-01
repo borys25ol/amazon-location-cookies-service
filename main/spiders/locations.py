@@ -1,9 +1,9 @@
-from typing import Any, Generator
+from typing import Any, Dict, Generator
 
 from scrapy import Request, Spider
 from scrapy.http import HtmlResponse
 
-from main.settings import DEFAULT_USER_AGENT
+from main.settings import DEFAULT_USER_AGENT, HEADERS
 from main.utils import execute_curl_command, extract_response_cookies
 
 
@@ -16,7 +16,7 @@ class AmazonLocationSessionSpider(Spider):
 
     address_change_endpoint = "/gp/delivery/ajax/address-change.html"
     csrf_token_endpoint = (
-        "/gp/glow/get-address-selections.html?deviceType=desktop"
+        "/portal-migration/hz/glow/get-rendered-address-selections?deviceType=desktop"
         "&pageType=Gateway&storeContext=NoStoreName&actionSource=desktop-modal"
     )
     countries_base_urls = {
@@ -25,14 +25,7 @@ class AmazonLocationSessionSpider(Spider):
         "UK": "https://www.amazon.co.uk",
         "DE": "https://www.amazon.de",
         "ES": "https://www.amazon.es",
-    }
-
-    default_headers = {
-        "sec-fetch-site": "none",
-        "sec-fetch-dest": "document",
-        "accept-language": "ru-RU,ru;q=0.9",
-        "connection": "close",
-        "user-agent": DEFAULT_USER_AGENT,
+        "IT": "https://www.amazon.it",
     }
 
     curl_command = """
@@ -59,7 +52,7 @@ class AmazonLocationSessionSpider(Spider):
             raise ValueError(f"Invalid country code: {self.country}")
         request = Request(
             url=self.countries_base_urls[self.country],
-            headers=self.default_headers,
+            headers=HEADERS,
             callback=self.parse_ajax_token,
         )
         yield request
@@ -68,26 +61,26 @@ class AmazonLocationSessionSpider(Spider):
         """
         Parse ajax token from response.
         """
+        response_cookies = extract_response_cookies(response=response)
+        ajax_token = self._get_ajax_token(response=response)
         return response.request.replace(
             url=self.countries_base_urls[self.country] + self.csrf_token_endpoint,
-            headers={
-                "anti-csrftoken-a2z": self._get_ajax_token(response=response),
-                **self.default_headers,
-            },
-            callback=self.parse,
+            headers={**HEADERS, "anti-csrftoken-a2z": ajax_token},
+            cookies=response_cookies,
+            callback=self.parse_cookies,
+            cb_kwargs={"cookies": response_cookies},
         )
 
-    def parse(self, response: HtmlResponse, **kwargs: Any) -> dict:
+    def parse_cookies(self, response: HtmlResponse, cookies: Dict[str, str]) -> dict:
         """
         Parse CSRF token from response and make request to change Amazon location.
         """
-        response_cookies = extract_response_cookies(response=response)
         curl_command = self.curl_command.format(
             base_url=self.countries_base_urls[self.country],
             csrf_token=self._get_csrf_token(response=response),
             user_agent=DEFAULT_USER_AGENT,
             zip_code=self.zip_code,
-            session_id=response_cookies["session-id"],
+            session_id=cookies["session-id"],
         )
         curl_response = execute_curl_command(curl_command=curl_command).strip()
 
@@ -95,7 +88,7 @@ class AmazonLocationSessionSpider(Spider):
         # If `isValidAddress` equal to 1 it means that location changed successfully.
         if '"isValidAddress":1' not in curl_response:
             return {}
-        return response_cookies
+        return cookies
 
     @staticmethod
     def _get_ajax_token(response: HtmlResponse) -> str:
