@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from main.utils import form_error_message
+from main.api.utils import form_error_message
 
 
 class BaseInternalException(Exception):
