@@ -14,6 +14,13 @@ This project can be used to get Amazon location cookies from specific Amazon `Zi
 
 It will be very helpful when you are using random geolocation proxies for scraping data from Amazon because Amazon returns content based on user IP.
 
+Tested location at the moment:
+- US (30322)
+- ES (28010)
+- UK (E1 6AN)
+- DE (80686)
+- IT (20162)
+
 Developing
 -----------
 
@@ -79,28 +86,40 @@ Run docker containers:
 Check extracted amazon location cookies from python script:
 ```python
 import re
+from time import sleep
 
 import requests
 
+API_URL = "http://127.0.0.1:8000/api/v1/cookies?zip_code={zip_code}&country_code={country_code}"
+
+HEADERS = {"user-agent": "user-agent"}
+
+COUNTRY_CONFIG = {
+    "US": {"zip_code": "30322", "amazon_url": "https://amazon.com"},
+    "ES": {"zip_code": "28010", "amazon_url": "https://amazon.es"},
+    "UK": {"zip_code": "E1 6AN", "amazon_url": "https://amazon.co.uk"},
+    "DE": {"zip_code": "80686", "amazon_url": "https://amazon.de"},
+    "IT": {"zip_code": "20162", "amazon_url": "https://amazon.it"},
+}
+
 
 def main():
-    # E1 6AN - London postal code
-    api_url = "http://127.0.0.1:8000/api/v1/cookies?zip_code=E1+6AN&country_code=UK"
-    amazon_url = "https://amazon.co.uk/"
-    default_headers = {"user-agent": "user-agent"}
-
-    json_data = requests.get(url=api_url).json()
-    cookies = json_data["data"]["cookies"]
-
-    amazon_response = requests.get(
-        url=amazon_url, cookies=cookies, headers=default_headers
-    )
-    location = re.search(r'(?s)glow-ingress-line2">(.+?)<', amazon_response.text)
-    print(location.group(1).strip())
+    for country in COUNTRY_CONFIG:
+        print("Check cookies for country: ", country)
+        api_url = API_URL.format(
+            zip_code=COUNTRY_CONFIG[country]["zip_code"], country_code=country
+        )
+        json_data = requests.get(url=api_url).json()
+        cookies = json_data["data"]["cookies"]
+        amazon_response = requests.get(
+            url=COUNTRY_CONFIG[country]["amazon_url"], cookies=cookies, headers=HEADERS,
+        )
+        location = re.search(r'(?s)glow-ingress-line2">(.+?)<', amazon_response.text)
+        print("Response: ", location.group(1).strip())
+        sleep(5)
 
 
 if __name__ == "__main__":
     main()
-
 
 ```

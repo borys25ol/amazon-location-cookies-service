@@ -11,10 +11,11 @@ class AmazonCountryCode(str, Enum):
     GB = "GB"
     DE = "DE"
     ES = "ES"
+    IT = "IT"
 
 
 class SuccessModel(BaseModel):
-    success: bool
+    success: bool = True
 
 
 class Response(SuccessModel):

@@ -31,29 +31,11 @@ docker_restart:
 docker_logs:
 	docker-compose logs --tail=100 -f
 
-register_user:
-	export PYTHONPATH=. && export APP_ENV=prod && python ./main/cli.py register-user
+runscrapyrt:
+	scrapyrt --ip 0.0.0.0 --port 7800
 
-register_test_user:
-	export PYTHONPATH=. && export APP_ENV=test && python ./main/cli.py register-user
-
-add_test_config:
-	export PYTHONPATH=. && export APP_ENV=test && python ./main/cli.py add-test-project-config
-
-runserver-prod:
-	uvicorn main.app:app --host 0.0.0.0 --port 5000 --reload
-
-runserver-dev:
-	 export APP_ENV=dev && uvicorn main.app:app --host 0.0.0.0 --port 5000 --reload
-
-runserver-test:
-	 export APP_ENV=test && uvicorn main.app:app --host 0.0.0.0 --port 5000 --reload
-
-test:
-	export APP_ENV=test && python -m pytest -v ./tests
-
-test-cov:
-	export APP_ENV=test && python -m pytest  --cov=./main ./tests
+runserver:
+	uvicorn main.api.app:app --host 0.0.0.0 --port 8000 --reload
 
 install_hooks:
 	pip install -r requirements-ci.txt; \

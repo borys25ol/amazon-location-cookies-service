@@ -7,6 +7,14 @@ NEWSPIDER_MODULE = "main.spiders"
 ROBOTSTXT_OBEY = False
 
 DEFAULT_USER_AGENT = (
-    "Mozilla/5.0 (Windows; U; Windows NT 6.0; en-US) AppleWebKit/527  "
-    "(KHTML like Gecko Safari/419.3) Arora/0.6 (Change: );;"
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/99.0.4844.83 Safari/537.36"
 )
+
+HEADERS = {
+    "sec-fetch-site": "none",
+    "sec-fetch-dest": "document",
+    "accept-language": "ru-RU,ru;q=0.9",
+    "connection": "close",
+    "user-agent": DEFAULT_USER_AGENT,
+}
