@@ -38,10 +38,10 @@ class AmazonLocationService:
                 status_code=404,
             )
         return Response(
-            success=True,
             data={
                 "zip_code": data.zip_code,
                 "country_code": data.country_code,
                 "cookies": json_data["items"][0],
             },
+            message=f"Cookies for zip code: `{data.zip_code}` extracted successfully",
         )
