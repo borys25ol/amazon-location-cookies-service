@@ -17,7 +17,7 @@ class AmazonLocationSessionSpider(Spider):
     address_change_endpoint = "/gp/delivery/ajax/address-change.html"
     csrf_token_endpoint = (
         "/portal-migration/hz/glow/get-rendered-address-selections?deviceType=desktop"
-        "&pageType=Gateway&storeContext=NoStoreName&actionSource=desktop-modal"
+        "&pageType=Search&storeContext=NoStoreName&actionSource=desktop-modal"
     )
     countries_base_urls = {
         "US": "https://www.amazon.com",
@@ -62,6 +62,7 @@ class AmazonLocationSessionSpider(Spider):
         Parse ajax token from response.
         """
         response_cookies = extract_response_cookies(response=response)
+        print(response_cookies)
         ajax_token = self._get_ajax_token(response=response)
         return response.request.replace(
             url=self.countries_base_urls[self.country] + self.csrf_token_endpoint,
