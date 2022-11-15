@@ -14,7 +14,7 @@ class AmazonLocationSessionSpider(Spider):
 
     name = "amazon:location-session"
 
-    address_change_endpoint = "/gp/delivery/ajax/address-change.html"
+    address_change_endpoint = "/portal-migration/hz/glow/address-change?actionSource=glow"
     csrf_token_endpoint = (
         "/portal-migration/hz/glow/get-rendered-address-selections?deviceType=desktop"
         "&pageType=Search&storeContext=NoStoreName&actionSource=desktop-modal"
