@@ -14,7 +14,9 @@ class AmazonLocationSessionSpider(Spider):
 
     name = "amazon:location-session"
 
-    address_change_endpoint = "/portal-migration/hz/glow/address-change?actionSource=glow"
+    address_change_endpoint = (
+        "/portal-migration/hz/glow/address-change?actionSource=glow"
+    )
     csrf_token_endpoint = (
         "/portal-migration/hz/glow/get-rendered-address-selections?deviceType=desktop"
         "&pageType=Search&storeContext=NoStoreName&actionSource=desktop-modal"
@@ -29,7 +31,7 @@ class AmazonLocationSessionSpider(Spider):
     }
 
     curl_command = """
-        curl '{base_url}/gp/delivery/ajax/address-change.html' \
+        curl '{base_url}/{endpoint}' \
         -H 'anti-csrftoken-a2z: {csrf_token}' \
         -H 'user-agent: {user_agent}' \
         -H 'cookie: session-id={session_id}' \
@@ -48,8 +50,10 @@ class AmazonLocationSessionSpider(Spider):
         Make start request to main Amazon country page.
         """
         base_url = self.countries_base_urls.get(self.country)
+
         if not base_url:
             raise ValueError(f"Invalid country code: {self.country}")
+
         request = Request(
             url=self.countries_base_urls[self.country],
             headers=HEADERS,
@@ -62,11 +66,14 @@ class AmazonLocationSessionSpider(Spider):
         Parse ajax token from response.
         """
         response_cookies = extract_response_cookies(response=response)
-        print(response_cookies)
-        ajax_token = self._get_ajax_token(response=response)
+
+        headers = {
+            **HEADERS,
+            "anti-csrftoken-a2z": self._get_ajax_token(response=response),
+        }
         return response.request.replace(
             url=self.countries_base_urls[self.country] + self.csrf_token_endpoint,
-            headers={**HEADERS, "anti-csrftoken-a2z": ajax_token},
+            headers=headers,
             cookies=response_cookies,
             callback=self.parse_cookies,
             cb_kwargs={"cookies": response_cookies},
@@ -78,6 +85,7 @@ class AmazonLocationSessionSpider(Spider):
         """
         curl_command = self.curl_command.format(
             base_url=self.countries_base_urls[self.country],
+            endpoint=self.address_change_endpoint,
             csrf_token=self._get_csrf_token(response=response),
             user_agent=DEFAULT_USER_AGENT,
             zip_code=self.zip_code,

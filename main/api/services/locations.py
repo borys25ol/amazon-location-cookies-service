@@ -28,7 +28,9 @@ class AmazonLocationService:
             ),
         }
         url = add_query_params(url=settings.scrapyrt_url, params=query_params)
+
         json_data = requests.get(url=url).json()
+
         if not json_data["items"][0]:
             raise CookiesNotFoundException(
                 message=(
@@ -37,6 +39,7 @@ class AmazonLocationService:
                 ),
                 status_code=404,
             )
+
         return Response(
             data={
                 "zip_code": data.zip_code,
