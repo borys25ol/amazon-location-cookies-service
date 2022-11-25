@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Generator
 
 from scrapy import Request, Spider
@@ -34,9 +35,9 @@ class AmazonLocationSessionSpider(Spider):
         curl '{base_url}/{endpoint}' \
         -H 'anti-csrftoken-a2z: {csrf_token}' \
         -H 'user-agent: {user_agent}' \
+        -H 'content-type: application/json' \
         -H 'cookie: session-id={session_id}' \
-        --data-raw 'locationType=LOCATION_INPUT&zipCode={zip_code}&storeContext=generic&
-        deviceType=web&pageType=Gateway&actionSource=glow&almBrandId=undefined' \
+        --data-raw '{json_payload}' \
         --compressed
     """
 
@@ -83,12 +84,20 @@ class AmazonLocationSessionSpider(Spider):
         """
         Parse CSRF token from response and make request to change Amazon location.
         """
+        payload = {
+            "locationType": "LOCATION_INPUT",
+            "zipCode": self.zip_code.replace("+", " "),
+            "storeContext": "generic",
+            "deviceType": "web",
+            "pageType": "Gateway",
+            "actionSource": "glow",
+        }
         curl_command = self.curl_command.format(
             base_url=self.countries_base_urls[self.country],
             endpoint=self.address_change_endpoint,
             csrf_token=self._get_csrf_token(response=response),
             user_agent=DEFAULT_USER_AGENT,
-            zip_code=self.zip_code,
+            json_payload=json.dumps(payload),
             session_id=cookies["session-id"],
         )
         curl_response = execute_curl_command(curl_command=curl_command).strip()
