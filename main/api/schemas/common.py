@@ -1,8 +1,7 @@
 import re
 from enum import Enum
-from typing import Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 
 class AmazonCountryCode(str, Enum):
@@ -19,9 +18,9 @@ class SuccessModel(BaseModel):
 
 
 class Response(SuccessModel):
-    data: Optional[dict] = {}
-    message: Optional[str]
-    errors: Optional[list] = []
+    data: dict | None = {}
+    message: str | None
+    errors: list | None = []
 
 
 class ScrapingRequest(BaseModel):
@@ -31,7 +30,7 @@ class ScrapingRequest(BaseModel):
     class Config:
         use_enum_values = True
 
-    @validator("zip_code")
+    @field_validator("zip_code")
     def valid_zip_code(cls, value: str) -> str:
         if not re.match(
             "^[0-9]{5}(?:-[0-9]{4})?|[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$", value

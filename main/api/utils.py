@@ -1,7 +1,7 @@
 from typing import List
 
 
-def form_error_message(errors: List[dict]) -> List[str]:
+def form_error_message(errors: list[dict]) -> list[str]:
     """
     Make valid pydantic `ValidationError` messages list.
     """
