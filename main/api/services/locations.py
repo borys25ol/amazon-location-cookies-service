@@ -11,14 +11,12 @@ settings = get_app_settings()
 
 
 class AmazonLocationService:
-    """
-    Service to extract data from ScrapyRT service.
-    """
+    """Service to extract Amazon cookies data from ScrapyRT service."""
 
     @staticmethod
     def get_cookies(data: ScrapingRequest) -> Response:
         """
-        Get amazon cookies.
+        Get amazon cookies from ScrapyRT service.
         """
         query_params = {
             "start_requests": "1",
@@ -29,7 +27,7 @@ class AmazonLocationService:
         }
         url = add_query_params(url=settings.scrapyrt_url, params=query_params)
 
-        json_data = requests.get(url=url).json()
+        json_data = requests.get(url=url, timeout=30).json()
 
         if not json_data["items"][0]:
             raise CookiesNotFoundException(

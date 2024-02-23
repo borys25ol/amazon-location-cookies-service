@@ -37,8 +37,7 @@ def add_query_param(url: str, name: str, value: str) -> str:
     """
     Add GET query parameter to `url`.
     """
-    url = furl(url=url).add({name: value}).url
-    return url
+    return furl(url=url).add({name: value}).url
 
 
 def add_query_params(url: str, params: dict) -> str:

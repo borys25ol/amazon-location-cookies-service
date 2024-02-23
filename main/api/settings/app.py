@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from main.api.settings.base import BaseAppSettings
 
@@ -19,7 +19,7 @@ class AppSettings(BaseAppSettings):
 
     api_prefix: str = "/api/v1"
 
-    allowed_hosts: List[str] = ["*"]
+    allowed_hosts: list[str] = ["*"]
 
     logging_level: int = logging.INFO
 
@@ -27,7 +27,7 @@ class AppSettings(BaseAppSettings):
         validate_assignment = True
 
     @property
-    def fastapi_kwargs(self) -> Dict[str, Any]:
+    def fastapi_kwargs(self) -> dict[str, Any]:
         return {
             "debug": self.debug,
             "docs_url": self.docs_url,

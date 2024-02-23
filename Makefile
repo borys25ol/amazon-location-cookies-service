@@ -41,7 +41,7 @@ install_hooks:
 	pip install -r requirements-ci.txt; \
 	pre-commit install; \
 
-run_hooks_on_all_files:
+run_hooks:
 	pre-commit run --all-files
 
 style:
