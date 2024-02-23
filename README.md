@@ -26,18 +26,11 @@ Developing
 
 Install pre-commit hooks to ensure code quality checks and style checks
 
-
-    $ make install_hooks
+```shell
+make install_hooks
+```
 
 Then see `Configuration` section
-
-You can also use these commands during dev process:
-
-- to run mypy checks
-
-
-      $ make types
-
 
 Configuration
 --------------
@@ -49,41 +42,121 @@ SECRET_KEY=changeme
 SCRAPYRT_URL=http://scrapyrt:7800/crawl.json
 ```
 
-
 Local install
 -------------
 
 Setup and activate a python3 virtualenv via your preferred method. e.g. and install production requirements:
 
-
-    $ make ve
+```shell
+make ve
+```
 
 For remove virtualenv:
 
-
-    $ make clean
-
+```shell
+make clean
+```
 
 Local run
 -------------
 Run spider locally:
 
-
-    $  scrapy crawl amazon:location-session -a country=US -a zip_code=30322
-
+```shell
+scrapy crawl amazon:location-session -a country=US -a zip_code=30322
+```
 
 Run using local ScrapyRT service:
 
-    $  scrapyrt --ip 0.0.0.0 --port 7800
-    $  curl http://0.0.0.0:7800/crawl.json?start_requests=1&spider_name=amazon:location-session&crawl_args={"zip_code":"30332","country":"US"}
+```shell
+scrapyrt --ip 0.0.0.0 --port 7800
 
+curl -X 'GET' \
+ 'http://0.0.0.0:7800/crawl.json?start_requests=1&spider_name=amazon:location-session&crawl_args={"zip_code":"30332","country":"US"}'
+```
+
+ScrapyRT response example:
+
+```json
+{
+    "status": "ok",
+    "items": [
+        {
+            "session-id": "136-1132730-6579246",
+            "session-id-time": "2082787201l",
+            "i18n-prefs": "USD",
+            "sp-cdn": "L5Z9:UA",
+            "skin": "noskin"
+        }
+    ],
+    "items_dropped": [],
+    "stats": {
+        "downloader/request_bytes": 2433,
+        "downloader/request_count": 3,
+        "downloader/request_method_count/GET": 2,
+        "downloader/request_method_count/POST": 1,
+        "downloader/response_bytes": 110566,
+        "downloader/response_count": 3,
+        "downloader/response_status_count/200": 3,
+        "elapsed_time_seconds": 2.278885,
+        "finish_reason": "finished",
+        "finish_time": "2024-02-23 15:50:15",
+        "httpcompression/response_bytes": 379835,
+        "httpcompression/response_count": 3,
+        "item_scraped_count": 1,
+        "log_count/DEBUG": 4,
+        "log_count/INFO": 9,
+        "log_count/WARNING": 1,
+        "memusage/max": 86364160,
+        "memusage/startup": 86364160,
+        "request_depth_max": 2,
+        "response_received_count": 3,
+        "scheduler/dequeued": 3,
+        "scheduler/dequeued/memory": 3,
+        "scheduler/enqueued": 3,
+        "scheduler/enqueued/memory": 3,
+        "start_time": "2024-02-23 15:50:13"
+    },
+    "spider_name": "amazon:location-session"
+}
+```
+#### Run in Docker:
 
 Run docker containers:
 
-    $  make docker_up
+```shell
+make docker_up
+```
 
+Run using dockerized API service:
 
-Check extracted amazon location cookies from python script:
+```shell
+curl -X 'GET' \
+  'http://127.0.0.1:8000/api/v1/cookies?zip_code=30322&country_code=US' \
+  -H 'accept: application/json'
+```
+
+Docker API response example:
+
+```json
+{
+  "success": true,
+  "data": {
+    "zip_code": "30322",
+    "country_code": "US",
+    "cookies": {
+      "session-id": "138-7674092-2025337",
+      "session-id-time": "2082787201l",
+      "i18n-prefs": "USD",
+      "sp-cdn": "L5Z9:UA",
+      "skin": "noskin"
+    }
+  },
+  "message": "Cookies for zip code: `30322` extracted successfully",
+  "errors": []
+}
+```
+
+#### Check extracted amazon location cookies from python script:
 ```python
 import re
 from time import sleep
