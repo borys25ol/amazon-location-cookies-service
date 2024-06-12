@@ -1,4 +1,6 @@
-from typing import List
+"""
+Module for utility functions.
+"""
 
 
 def form_error_message(errors: list[dict]) -> list[str]:
