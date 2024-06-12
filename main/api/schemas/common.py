@@ -11,6 +11,7 @@ class AmazonCountryCode(str, Enum):
     DE = "DE"
     ES = "ES"
     IT = "IT"
+    FR = "FR"
 
 
 class SuccessModel(BaseModel):

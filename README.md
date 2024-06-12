@@ -20,6 +20,7 @@ Tested location at the moment:
 - UK (E1 6AN)
 - DE (80686)
 - IT (20162)
+- FR (75001)
 
 Developing
 -----------
@@ -174,6 +175,7 @@ COUNTRY_CONFIG = {
     "UK": {"zip_code": "E1 6AN", "amazon_url": "https://amazon.co.uk"},
     "DE": {"zip_code": "80686", "amazon_url": "https://amazon.de"},
     "IT": {"zip_code": "20162", "amazon_url": "https://amazon.it"},
+    "FR": {"zip_code": "75001", "amazon_url": "https://amazon.fr"},
 }
 
 LOCATION_REGEX = r'(?s)glow-ingress-line2">(.+?)<'

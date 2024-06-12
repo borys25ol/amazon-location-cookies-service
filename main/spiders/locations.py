@@ -27,6 +27,7 @@ class AmazonLocationSessionSpider(Spider):
         "DE": "https://www.amazon.de",
         "ES": "https://www.amazon.es",
         "IT": "https://www.amazon.it",
+        "FR": "https://www.amazon.fr",
     }
 
     def __init__(
