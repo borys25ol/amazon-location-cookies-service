@@ -10,7 +10,7 @@ Amazon Location Cookies
 
 ## Description
 
-This project can be used to get Amazon location cookies from specific Amazon `Zip-Code` and country-specific domains like `.de`, `.co.uk`, etc.
+This project can be used to get Amazon location cookies from specific Amazon `zip-code` and country-specific domains like `.de`, `.co.uk`, etc.
 
 It will be very helpful when you are using random geolocation proxies for scraping data from Amazon because Amazon returns content based on user IP.
 
@@ -21,6 +21,10 @@ Tested location at the moment:
 - DE (80686)
 - IT (20162)
 - FR (75001)
+
+Also, there is the ability to change `delivery country` (ship outside the current county) for example delivery from the US (`.com`) to the France (`FR`).
+
+There no restrictions for choosing "outside country". You can choose whatever you want (if it available on Amazon).
 
 Developing
 -----------
@@ -60,10 +64,17 @@ make clean
 
 Local run
 -------------
-Run spider locally:
+
+For changing location:
 
 ```shell
-scrapy crawl amazon:location-session -a country=US -a zip_code=30322
+scrapy crawl amazon:location-delivery-session -a country=US -a zip_code=30322
+```
+
+For changing country:
+
+```shell
+scrapy crawl amazon:outside-delivery-session -a country=US -a delivery_country=FR
 ```
 
 Run using local ScrapyRT service:
@@ -72,7 +83,10 @@ Run using local ScrapyRT service:
 scrapyrt --ip 0.0.0.0 --port 7800
 
 curl -X 'GET' \
- 'http://0.0.0.0:7800/crawl.json?start_requests=1&spider_name=amazon:location-session&crawl_args={"zip_code":"30332","country":"US"}'
+ 'http://0.0.0.0:7800/crawl.json?start_requests=1&spider_name=amazon:location-delivery-session&crawl_args={"zip_code":"30332","country":"US"}'
+
+curl -X 'GET' \
+ 'http://0.0.0.0:7800/crawl.json?start_requests=1&spider_name=amazon:outside-delivery-session&crawl_args={"delivery_country":"FR","country":"US"}'
 ```
 
 ScrapyRT response example:
@@ -132,11 +146,15 @@ Run using dockerized API service:
 
 ```shell
 curl -X 'GET' \
-  'http://127.0.0.1:8000/api/v1/cookies?zip_code=30322&country_code=US' \
+  'http://127.0.0.1:8000/api/v1/locations/cookies?zip_code=30322&country_code=US' \
+  -H 'accept: application/json'
+
+curl -X 'GET' \
+  'http://127.0.0.1:8000/api/v1/countries/cookies?delivery_country_code=FR&country_code=US' \
   -H 'accept: application/json'
 ```
 
-Docker API response example:
+Docker API response example for changed **location**:
 
 ```json
 {
@@ -157,7 +175,32 @@ Docker API response example:
 }
 ```
 
-#### Check extracted amazon location cookies from python script:
+Docker API response example for changed **country**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "delivery_country_code": "FR",
+    "country_code": "US",
+    "cookies": {
+      "session-id": "138-7674092-2025337",
+      "session-id-time": "2082787201l",
+      "i18n-prefs": "USD",
+      "sp-cdn": "L5Z9:UA",
+      "skin": "noskin"
+    }
+  },
+  "message": "Cookies for delivery country: `FR` extracted successfully",
+  "errors": []
+}
+```
+
+How to use?
+-------------
+
+Check extracted amazon location cookies from python script:
+
 ```python
 import re
 from time import sleep
@@ -165,11 +208,11 @@ from typing import Dict
 
 import requests
 
-API_URL = "http://127.0.0.1:8000/api/v1/cookies?zip_code={zip_code}&country_code={country_code}"
+API_URL = "http://127.0.0.1:8000/api/v1/location/cookies?zip_code={zip_code}&country_code={country_code}"
 
 HEADERS = {"user-agent": "user-agent"}
 
-COUNTRY_CONFIG = {
+LOCATIONS_CONFIG = {
     "US": {"zip_code": "30322", "amazon_url": "https://amazon.com"},
     "ES": {"zip_code": "28010", "amazon_url": "https://amazon.es"},
     "UK": {"zip_code": "E1 6AN", "amazon_url": "https://amazon.co.uk"},
@@ -204,10 +247,10 @@ def main() -> None:
     """
     Project entry point.
     """
-    for country in COUNTRY_CONFIG:
+    for country in LOCATIONS_CONFIG:
         print("Check cookies for country: ", country)
-        amazon_url = COUNTRY_CONFIG[country]["amazon_url"]
-        zip_code = COUNTRY_CONFIG[country]["zip_code"]
+        amazon_url = LOCATIONS_CONFIG[country]["amazon_url"]
+        zip_code = LOCATIONS_CONFIG[country]["zip_code"]
 
         # Extract cookies via Amazon Location Service.
         cookies = get_location_cookies(country=country, zip_code=zip_code)
@@ -218,4 +261,100 @@ def main() -> None:
         print("Amazon response: ", response)
         sleep(5)
 
+
+if __name__ == '__main__':
+    main()
+
+```
+
+Script response:
+
+```text
+Check cookies for country:  US
+Got Amazon cookies:  {'session-id': '145-9152803-6066337'}
+Amazon response:  Atlanta 30322&zwnj;
+
+
+Check cookies for country:  ES
+Got Amazon cookies:  {'session-id': '258-6822533-6748349'}
+Amazon response:  Madrid 28010&zwnj;
+```
+
+
+Check extracted amazon outside delivery cookies from python script:
+
+```python
+import re
+from time import sleep
+from typing import Dict
+
+import requests
+
+API_URL = "http://127.0.0.1:8000/api/v1/countries/cookies?delivery_country_code={delivery_country}&country_code={country_code}"
+
+HEADERS = {"user-agent": "user-agent"}
+
+COUNTRIES_CONFIG = {
+    "US": {"delivery_country": "CL", "amazon_url": "https://www.amazon.com"},
+    "ES": {"delivery_country": "PE", "amazon_url": "https://amazon.es"},
+    "UK": {"delivery_country": "UA", "amazon_url": "https://amazon.co.uk"},
+    "DE": {"delivery_country": "MX", "amazon_url": "https://amazon.de"},
+    "IT": {"delivery_country": "ES", "amazon_url": "https://amazon.it"},
+}
+
+LOCATION_REGEX = r'(?s)glow-ingress-line2">(.+?)<'
+
+
+def get_location_cookies(country: str, delivery_country: str) -> Dict[str, str]:
+    """
+    Make request to Amazon Location Cookies service for getting location cookies.
+    """
+    api_url = API_URL.format(delivery_country=delivery_country, country_code=country)
+    json_data = requests.get(url=api_url).json()
+    cookies = json_data["data"]["cookies"]
+    return cookies
+
+
+def check_location_cookies(amazon_url: str, cookies: Dict[str, str]) -> str:
+    """
+    Make request to country specific Amazon url with location cookies.
+    """
+    amazon_response = requests.get(url=amazon_url, cookies=cookies, headers=HEADERS)
+    location = re.search(LOCATION_REGEX, amazon_response.text)
+    return location.group(1).strip()
+
+
+def main() -> None:
+    """
+    Project entry point.
+    """
+    for country in COUNTRIES_CONFIG:
+        print("Check cookies for country: ", country)
+        amazon_url = COUNTRIES_CONFIG[country]["amazon_url"]
+        delivery_country = COUNTRIES_CONFIG[country]["delivery_country"]
+
+        # Extract cookies via Amazon Location Service.
+        cookies = get_location_cookies(country=country, delivery_country=delivery_country)
+        print("Got Amazon cookies: ", cookies)
+
+        # Check response using location cookies.
+        response = check_location_cookies(amazon_url=amazon_url, cookies=cookies)
+        print("Amazon response: ", response)
+        sleep(5)
+
+
+if __name__ == '__main__':
+    main()
+
+```
+Script response:
+
+```text
+Check cookies for country:  UK
+Got Amazon cookies:  {'session-id': '262-8205108-4515828', 'session-id-time': '2082787201l', 'i18n-prefs': 'GBP', 'sp-cdn': 'L5Z9:UA'}
+Amazon response:  Ukraine
+
+Check cookies for country:  ES
+Got Amazon cookies:  {'session-id': '260-1914639-0616257', 'session-id-time': '2082787201l', 'i18n-prefs': 'EUR'}
+Amazon response:  Perú
 ```
