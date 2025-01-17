@@ -7,24 +7,25 @@ from main.settings import HEADERS
 from main.spiders.base import AmazonBaseSessionSpider
 
 
-class AmazonLocationSessionSpider(AmazonBaseSessionSpider):
-    """Amazon spider for extracting location cookies."""
+class AmazonCountrySessionSpider(AmazonBaseSessionSpider):
+    """Amazon spider for extracting country delivery cookies."""
 
-    name = "amazon:location-delivery-session"
+    name = "amazon:outside-delivery-session"
 
     def parse_cookies(self, response: HtmlResponse, cookies: dict[str, str]) -> Request:
         """
-        Parse CSRF token from response and make request to change Amazon location.
+        Parse CSRF token from response and make request to change Amazon delivery country.
         """
-        if not (zip_code := self.kwargs.get("zip_code")):
-            raise ValueError("You must specify a zip code")
+        if not (delivery_country := self.kwargs.get("delivery_country")):
+            raise ValueError("You must specify the outside delivery country")
 
         payload = {
-            "locationType": "LOCATION_INPUT",
-            "zipCode": zip_code.replace("+", " "),
-            "storeContext": "generic",
+            "locationType": "COUNTRY",
+            "district": delivery_country.upper(),
+            "countryCode": delivery_country.upper(),
             "deviceType": "web",
-            "pageType": "Gateway",
+            "storeContext": "hpc",
+            "pageType": "Search",
             "actionSource": "glow",
         }
         headers = {

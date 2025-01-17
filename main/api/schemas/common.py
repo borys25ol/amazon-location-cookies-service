@@ -24,7 +24,7 @@ class Response(SuccessModel):
     errors: list | None = []
 
 
-class ScrapingRequest(BaseModel):
+class ScrapingLocationRequest(BaseModel):
     country_code: AmazonCountryCode
     zip_code: str
 
@@ -38,3 +38,11 @@ class ScrapingRequest(BaseModel):
         ):
             raise ValueError("- Invalid zip code ")
         return value
+
+
+class ScrapingCountryRequest(BaseModel):
+    country_code: AmazonCountryCode
+    delivery_country_code: str
+
+    class Config:
+        use_enum_values = True
