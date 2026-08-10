@@ -301,169 +301,111 @@ Docker API response example for changed **country**:
 How to use?
 -------------
 
-The cookies below are replayed against Amazon by a plain `requests` client. That
-client is subject to the same bot defences described in
-[How it works](#how-it-works): the returned session cookies usually pass on their
-own, but a request that gets challenged comes back as a `202` with an
-`x-amzn-waf-action` header, or as a ~2KB page with no `glow-ingress-line2` in it.
-Treat both as "retry", not as "the location did not stick".
-
-Check extracted amazon location cookies from python script:
+Two requests: ask the service for cookies, then send them to Amazon.
 
 ```python
 import re
-from time import sleep
-from typing import Dict
 
 import requests
 
-API_URL = "http://127.0.0.1:8000/api/v1/location/cookies?zip_code={zip_code}&country_code={country_code}"
+API_URL = "http://127.0.0.1:8000/api/v1/locations/cookies"
+AMAZON_URL = "https://www.amazon.com"
 
-HEADERS = {"user-agent": "user-agent"}
+BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+)
+PROXIES = {"https": "http://user:password@proxy.example.com:10080"}
 
-LOCATIONS_CONFIG = {
-    "US": {"zip_code": "30322", "amazon_url": "https://amazon.com"},
-    "ES": {"zip_code": "28010", "amazon_url": "https://amazon.es"},
-    "UK": {"zip_code": "E1 6AN", "amazon_url": "https://amazon.co.uk"},
-    "DE": {"zip_code": "80686", "amazon_url": "https://amazon.de"},
-    "IT": {"zip_code": "20162", "amazon_url": "https://amazon.it"},
-    "FR": {"zip_code": "75001", "amazon_url": "https://amazon.fr"},
-}
+# 1. Ask the service for cookies pinned to a location.
+response = requests.get(
+    url=API_URL, params={"zip_code": "30322", "country_code": "US"}
+)
+cookies = response.json()["data"]["cookies"]
 
-LOCATION_REGEX = r'(?s)glow-ingress-line2">(.+?)<'
-
-
-def get_location_cookies(country: str, zip_code: str) -> Dict[str, str]:
-    """
-    Make request to Amazon Location Cookies service for getting location cookies.
-    """
-    api_url = API_URL.format(zip_code=zip_code, country_code=country)
-    json_data = requests.get(url=api_url).json()
-    cookies = json_data["data"]["cookies"]
-    return cookies
-
-
-def check_location_cookies(amazon_url: str, cookies: Dict[str, str]) -> str:
-    """
-    Make request to country specific Amazon url with location cookies.
-    """
-    amazon_response = requests.get(url=amazon_url, cookies=cookies, headers=HEADERS)
-    location = re.search(LOCATION_REGEX, amazon_response.text)
-    return location.group(1).strip()
-
-
-def main() -> None:
-    """
-    Project entry point.
-    """
-    for country in LOCATIONS_CONFIG:
-        print("Check cookies for country: ", country)
-        amazon_url = LOCATIONS_CONFIG[country]["amazon_url"]
-        zip_code = LOCATIONS_CONFIG[country]["zip_code"]
-
-        # Extract cookies via Amazon Location Service.
-        cookies = get_location_cookies(country=country, zip_code=zip_code)
-        print("Got Amazon cookies: ", cookies)
-
-        # Check response using location cookies.
-        response = check_location_cookies(amazon_url=amazon_url, cookies=cookies)
-        print("Amazon response: ", response)
-        sleep(5)
-
-
-if __name__ == '__main__':
-    main()
-
+# 2. Use them. Amazon renders the delivery location in its "Deliver to" widget.
+page = requests.get(
+    url=AMAZON_URL, cookies=cookies, headers={"user-agent": BROWSER_UA}, proxies=PROXIES
+)
+location = re.search(r'(?s)glow-ingress-line2">(.+?)<', page.text)
+print(location.group(1).replace("&zwnj;", "").strip())
 ```
-
-Script response:
 
 ```text
-Check cookies for country:  US
-Got Amazon cookies:  {'session-id': '145-9152803-6066337'}
-Amazon response:  Atlanta 30322&zwnj;
-
-
-Check cookies for country:  ES
-Got Amazon cookies:  {'session-id': '258-6822533-6748349'}
-Amazon response:  Madrid 28010&zwnj;
+Atlanta 30322
 ```
 
+That is the whole integration. Loop over it only if you actually need several
+locations; nothing about the service requires one.
 
-Check extracted amazon outside delivery cookies from python script:
+### What to change
+
+| To change | Change this |
+|---|---|
+| The location | `zip_code`, and `country_code` to the matching storefront |
+| The storefront | `AMAZON_URL`, to the domain for that `country_code` |
+| Where you appear to browse from | `PROXIES` |
+| Delivery to another country instead of a zip code | See below |
+
+`country_code` accepts `US`, `UK`, `GB`, `DE`, `ES`, `IT`, `FR`, uppercase, and
+maps to `amazon.com`, `.co.uk`, `.de`, `.es`, `.it`, `.fr`. Send the cookies to
+the same storefront they were issued for — cookies from `amazon.de` say nothing
+about `amazon.com`.
+
+The proxy is optional but is the reason this service exists: Amazon serves
+content by IP, so a geolocated proxy plus these cookies is what pins both ends.
+Requests from an address that has been scraping heavily get challenged, and then
+the check below fails no matter how good the cookies are.
+
+### Shipping outside the storefront's country
+
+Same shape, different endpoint. Instead of a zip code, name the destination:
 
 ```python
-import re
-from time import sleep
-from typing import Dict
-
-import requests
-
-API_URL = "http://127.0.0.1:8000/api/v1/countries/cookies?delivery_country_code={delivery_country}&country_code={country_code}"
-
-HEADERS = {"user-agent": "user-agent"}
-
-COUNTRIES_CONFIG = {
-    "US": {"delivery_country": "CL", "amazon_url": "https://www.amazon.com"},
-    "ES": {"delivery_country": "PE", "amazon_url": "https://amazon.es"},
-    "UK": {"delivery_country": "UA", "amazon_url": "https://amazon.co.uk"},
-    "DE": {"delivery_country": "MX", "amazon_url": "https://amazon.de"},
-    "IT": {"delivery_country": "ES", "amazon_url": "https://amazon.it"},
-}
-
-LOCATION_REGEX = r'(?s)glow-ingress-line2">(.+?)<'
-
-
-def get_location_cookies(country: str, delivery_country: str) -> Dict[str, str]:
-    """
-    Make request to Amazon Location Cookies service for getting location cookies.
-    """
-    api_url = API_URL.format(delivery_country=delivery_country, country_code=country)
-    json_data = requests.get(url=api_url).json()
-    cookies = json_data["data"]["cookies"]
-    return cookies
-
-
-def check_location_cookies(amazon_url: str, cookies: Dict[str, str]) -> str:
-    """
-    Make request to country specific Amazon url with location cookies.
-    """
-    amazon_response = requests.get(url=amazon_url, cookies=cookies, headers=HEADERS)
-    location = re.search(LOCATION_REGEX, amazon_response.text)
-    return location.group(1).strip()
-
-
-def main() -> None:
-    """
-    Project entry point.
-    """
-    for country in COUNTRIES_CONFIG:
-        print("Check cookies for country: ", country)
-        amazon_url = COUNTRIES_CONFIG[country]["amazon_url"]
-        delivery_country = COUNTRIES_CONFIG[country]["delivery_country"]
-
-        # Extract cookies via Amazon Location Service.
-        cookies = get_location_cookies(country=country, delivery_country=delivery_country)
-        print("Got Amazon cookies: ", cookies)
-
-        # Check response using location cookies.
-        response = check_location_cookies(amazon_url=amazon_url, cookies=cookies)
-        print("Amazon response: ", response)
-        sleep(5)
-
-
-if __name__ == '__main__':
-    main()
-
+response = requests.get(
+    url="http://127.0.0.1:8000/api/v1/countries/cookies",
+    params={"delivery_country_code": "UA", "country_code": "UK"},
+)
 ```
-Script response:
 
-```text
-Check cookies for country:  UK
-Got Amazon cookies:  {'session-id': '262-8205108-4515828', 'session-id-time': '2082787201l', 'i18n-prefs': 'GBP', 'sp-cdn': 'L5Z9:UA'}
-Amazon response:  Ukraine
+Those cookies make `amazon.co.uk` quote delivery to Ukraine, and the widget then
+reads `Ukraine` rather than a postcode. Any destination Amazon offers will do.
 
-Check cookies for country:  ES
-Got Amazon cookies:  {'session-id': '260-1914639-0616257', 'session-id-time': '2082787201l', 'i18n-prefs': 'EUR'}
-Amazon response:  Perú
-```
+### When the location does not come back
+
+`location` is `None` whenever the page is not a storefront. That is not the same
+as the cookies having expired, and treating it that way will mislead you. Check
+which of these you got:
+
+- **`202`, or an `x-amzn-waf-action` header** — an AWS WAF challenge. Your client
+  was turned away before Amazon looked at the cookies. Retry, ideally from
+  another address.
+- **A ~2KB page holding `bm-verify`** — an Akamai interstitial. It carries a
+  `<meta http-equiv="refresh">` pointing at the real storefront; following it
+  once, on the same session and with the same cookies, gets you through:
+
+  ```python
+  from urllib.parse import urljoin
+
+  headers = {"user-agent": BROWSER_UA}
+  session = requests.Session()
+
+  page = session.get(url=AMAZON_URL, cookies=cookies, headers=headers, proxies=PROXIES)
+  if "bm-verify" in page.text:
+      target = re.search(r"""URL=['"]?([^'"]+)""", page.text).group(1)
+      page = session.get(
+          url=urljoin(AMAZON_URL, target),
+          cookies=cookies,
+          headers=headers,
+          proxies=PROXIES,
+      )
+  ```
+
+- **A full storefront showing the wrong location** — this one really is a stale
+  session. Ask the service for fresh cookies.
+
+The service can answer this for you: `POST /api/v1/sessions/check` takes
+`country_code`, `cookies` and an optional `expected`, and replies with the
+location it sees plus a verdict, or `409` when a bot check got in the way rather
+than guessing. It checks from wherever the service runs, which is not
+necessarily where you will be using the cookies.
