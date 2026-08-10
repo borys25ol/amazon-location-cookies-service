@@ -3,6 +3,8 @@ Amazon Location Cookies
 
 [![forthebadge made-with-python](http://ForTheBadge.com/images/badges/made-with-python.svg)](https://www.python.org/)
 
+[![CI](https://github.com/borys25ol/amazon-location-cookies-service/actions/workflows/ci.yaml/badge.svg)](https://github.com/borys25ol/amazon-location-cookies-service/actions/workflows/ci.yaml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
