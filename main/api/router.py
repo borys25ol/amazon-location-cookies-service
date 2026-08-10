@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 
-from main.api.routes import countries, locations
+from main.api.routes import countries, locations, sessions
 
 router = APIRouter()
 
 router.include_router(router=locations.router, prefix="/locations", tags=["Locations"])
 router.include_router(router=countries.router, prefix="/countries", tags=["Countries"])
+router.include_router(router=sessions.router, prefix="/sessions", tags=["Sessions"])
