@@ -1,0 +1,23 @@
+# Dependency drift is how this project breaks: a Scrapy release quietly stopped
+# calling `start_requests`, setuptools 81 dropped `pkg_resources` out from under
+# scrapyrt, and Twisted 24 removed a private API Scrapy relied on. None of it
+# surfaced until something was rebuilt by hand. These updates arrive as pull
+# requests instead.
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
