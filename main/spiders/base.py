@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from scrapy import Request, Spider
 from scrapy.http import HtmlResponse
 
-from main.settings import HEADERS
+from main.settings import COUNTRY_BASE_URLS, HEADERS
 from main.utils import extract_response_cookies
 from main.waf import get_waf_session, invalidate_waf_session
 
@@ -27,15 +27,7 @@ class AmazonBaseSessionSpider(Spider):
         "/portal-migration/hz/glow/get-rendered-address-selections?deviceType=desktop"
         "&pageType=Search&storeContext=NoStoreName&actionSource=desktop-modal"
     )
-    countries_base_urls = {
-        "US": "https://www.amazon.com",
-        "GB": "https://www.amazon.co.uk",
-        "UK": "https://www.amazon.co.uk",
-        "DE": "https://www.amazon.de",
-        "ES": "https://www.amazon.es",
-        "IT": "https://www.amazon.it",
-        "FR": "https://www.amazon.fr",
-    }
+    countries_base_urls = COUNTRY_BASE_URLS
 
     def __init__(self, country: str, *args: tuple, **kwargs: str) -> None:
         super().__init__(*args, **kwargs)

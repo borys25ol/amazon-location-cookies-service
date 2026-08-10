@@ -27,6 +27,19 @@ class CookiesNotFoundException(BaseInternalException):
     """
 
 
+class SessionCheckFailedException(BaseInternalException):
+    """
+    Raised when a bot check answered instead of the storefront, so the session
+    could not be judged either way.
+    """
+
+
+class AmazonUnreachableException(BaseInternalException):
+    """
+    Raised when Amazon did not answer at all.
+    """
+
+
 def add_internal_exception_handler(app: FastAPI) -> None:
     """
     Handle all internal exceptions.

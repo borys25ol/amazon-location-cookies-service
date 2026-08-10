@@ -25,6 +25,18 @@ DEFAULT_USER_AGENT = (
     "(KHTML, like Gecko) Chrome/99.0.4844.83 Safari/537.36"
 )
 
+# Shared by the spiders and by the API's session check, which talks to Amazon
+# directly and should not have to import a spider to learn the storefront URLs.
+COUNTRY_BASE_URLS = {
+    "US": "https://www.amazon.com",
+    "GB": "https://www.amazon.co.uk",
+    "UK": "https://www.amazon.co.uk",
+    "DE": "https://www.amazon.de",
+    "ES": "https://www.amazon.es",
+    "IT": "https://www.amazon.it",
+    "FR": "https://www.amazon.fr",
+}
+
 HEADERS = {
     "sec-fetch-site": "none",
     "sec-fetch-dest": "document",

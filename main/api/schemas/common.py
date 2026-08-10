@@ -46,3 +46,20 @@ class ScrapingCountryRequest(BaseModel):
 
     class Config:
         use_enum_values = True
+
+
+class SessionCheckRequest(BaseModel):
+    """
+    Cookies to replay against a storefront, and optionally what to expect there.
+
+    `expected` is matched as a case-insensitive substring of the location Amazon
+    shows, which covers both a zip code (`30322`) and a delivery country
+    (`Ukraine`) without needing separate fields.
+    """
+
+    country_code: AmazonCountryCode
+    cookies: dict[str, str]
+    expected: str | None = None
+
+    class Config:
+        use_enum_values = True
