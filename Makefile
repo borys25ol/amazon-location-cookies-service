@@ -1,8 +1,9 @@
+# uv reads .python-version, so everyone gets the interpreter the image ships.
 ve:
-	python3 -m venv .ve; \
-	. .ve/bin/activate; \
-	pip install -r requirements.txt; \
-	playwright install chromium; \
+	@command -v uv >/dev/null || { echo "uv is required: https://docs.astral.sh/uv/getting-started/installation/"; exit 1; }
+	uv venv --seed .ve
+	uv pip install --python .ve/bin/python -r requirements.txt
+	.ve/bin/playwright install chromium
 
 clean:
 	test -d .ve && rm -rf .ve
@@ -39,8 +40,8 @@ runserver:
 	uvicorn main.api.app:app --host 0.0.0.0 --port 8000 --reload
 
 install_hooks:
-	pip install -r requirements-ci.txt; \
-	pre-commit install; \
+	uv pip install --python .ve/bin/python -r requirements-ci.txt
+	.ve/bin/pre-commit install
 
 run_hooks:
 	pre-commit run --all-files
