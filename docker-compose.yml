@@ -5,8 +5,10 @@ services:
     build: .
     command: "uvicorn main.api.app:app --host 0.0.0.0 --port 8000"
     container_name: amazon-location-web
+    # Only this service reads the settings; the spiders never touch them.
+    env_file: .env
     environment:
-      # Overrides the baked-in .env, which points at localhost for host runs.
+      # Overrides the .env value, which points at localhost for host runs.
       SCRAPYRT_URL: "http://scrapyrt:7800/crawl.json"
     ports:
       - "8000:8000"
