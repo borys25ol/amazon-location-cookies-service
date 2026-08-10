@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,7 +21,10 @@ jobs:
       - name: Setup python environment
         uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          # Kept in step with the Dockerfile: checking on one version while
+          # shipping another is how a release that had no wheels for the
+          # image's interpreter went unnoticed.
+          python-version: '3.14'
 
       - name: Install requirements
         run: pip install -r requirements-ci.txt
@@ -35,3 +38,15 @@ jobs:
       # The suite stubs out every network call, so no browser is needed here.
       - name: Tests
         run: make test
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Building the image is the only thing that exercises the interpreter and
+      # the browser the service actually runs on. Its own job, so the fast
+      # checks above are not held up by it.
+      - name: Build the image
+        run: docker build -t amazon-location-cookies .
