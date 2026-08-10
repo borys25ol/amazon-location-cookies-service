@@ -119,14 +119,19 @@ it with the `scrapyrt` service hostname, so the same `.env` works for both.
 Local install
 -------------
 
-Setup and activate a python3 virtualenv via your preferred method. e.g. and install production requirements:
+Build the virtualenv and install production requirements:
 
 ```shell
 make ve
 ```
 
-This also downloads the Chromium build that Playwright uses to solve the WAF
-challenge. Installing requirements without `make ve` needs it done explicitly:
+This needs [uv](https://docs.astral.sh/uv/getting-started/installation/). It
+reads the interpreter from `.python-version`, fetching it if the machine does
+not have it, so the local environment matches the one the image ships rather
+than whatever `python3` happens to point at. It also downloads the Chromium
+build Playwright uses to solve the WAF challenge.
+
+Without `make ve`, both steps have to be done by hand:
 
 ```shell
 pip install -r requirements.txt
