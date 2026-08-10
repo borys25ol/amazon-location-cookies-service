@@ -5,8 +5,13 @@ services:
     build: .
     command: "uvicorn main.api.app:app --host 0.0.0.0 --port 8000"
     container_name: amazon-location-web
+    environment:
+      # Overrides the baked-in .env, which points at localhost for host runs.
+      SCRAPYRT_URL: "http://scrapyrt:7800/crawl.json"
     ports:
       - "8000:8000"
+    depends_on:
+      - scrapyrt
 
   scrapyrt:
     build: .
