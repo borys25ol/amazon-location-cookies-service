@@ -13,6 +13,11 @@ from main.utils import add_query_params
 
 settings = get_app_settings()
 
+# A crawl may have to launch a browser to solve the WAF challenge, and may do it
+# more than once if the first token is rejected, so the wait is far longer than a
+# plain HTTP crawl would need.
+SCRAPYRT_TIMEOUT_SECONDS = 180
+
 
 class AmazonSessionService:
     """Service to extract Amazon cookies data from ScrapyRT service."""
@@ -88,6 +93,6 @@ class AmazonSessionService:
         Make a GET request to ScrapyRT service.
         """
         url = add_query_params(url=settings.scrapyrt_url, params=params)
-        json_data = requests.get(url=url, timeout=30).json()
+        json_data = requests.get(url=url, timeout=SCRAPYRT_TIMEOUT_SECONDS).json()
         items = json_data["items"]
         return items[0] if items else None

@@ -26,6 +26,63 @@ Also, there is the ability to change `delivery country` (ship outside the curren
 
 There no restrictions for choosing "outside country". You can choose whatever you want (if it available on Amazon).
 
+How it works
+------------
+
+Each crawl walks the same three requests Amazon's own "Deliver to" widget makes:
+
+1. `GET /` — read the `glowValidationToken` out of the storefront HTML.
+2. `GET /portal-migration/hz/glow/get-rendered-address-selections` — read the `CSRF_TOKEN`.
+3. `POST /portal-migration/hz/glow/address-change` — set the location and keep the resulting cookies.
+
+### Getting past the AWS WAF challenge
+
+Amazon fronts its storefronts with an AWS WAF Bot Control challenge. A plain HTTP
+client never reaches step 1: it gets `202` with an `x-amzn-waf-action: challenge`
+header and a ~2KB stub page that loads `challenge.js`, instead of the storefront.
+Neither browser-like headers nor TLS fingerprint impersonation are enough on their
+own — the challenge script has to actually run.
+
+So a headless Chromium runs it once. The browser is handed an `aws-waf-token`
+cookie that stays valid for roughly four days and is fully replayable from an
+ordinary HTTP client, so the token is harvested, cached on disk, and attached to
+the spider's requests. Only a cache miss pays for a browser launch; everything
+after that is a normal Scrapy request.
+
+Three consequences worth knowing about:
+
+- **The user agent is part of the deal.** The token is issued against the browser
+  that solved the challenge, and replaying it under a different user agent gets
+  challenged again. Every request in the flow reuses the harvested user agent,
+  which is why spiders build headers through `build_headers()` instead of using
+  `HEADERS` directly.
+- **Cached tokens go stale unpredictably.** The cookie advertises a ~4 day
+  expiry, but Amazon stops honouring tokens well before that — sometimes within
+  the hour. A crawl that gets challenged therefore throws its token away,
+  harvests a new one and asks again, up to three times, rather than failing. This
+  retry is what actually keeps things working; the cache TTL is only there to
+  avoid pointless browser launches.
+- **Not every visit goes through the WAF.** Some sessions land on an Akamai Bot
+  Manager edge instead, which answers `200` with a ~2KB interstitial that sets
+  `ak_bmsc` and meta-refreshes to `/?bm-verify=...`. Scrapy's
+  `MetaRefreshMiddleware` follows that redirect and usually ends up on the real
+  storefront; if it does not, the interstitial is treated as a challenge and
+  retried like any other. The harvest itself prefers the WAF branch, because that
+  is the one that produces a token worth caching.
+
+### WAF token cache
+
+Tokens live in `.waf_cache/<host>.json` (gitignored) and are refreshed after an
+hour. Point `WAF_CACHE_DIR` somewhere else to relocate them, or force a fresh
+harvest with:
+
+```shell
+rm -rf .waf_cache
+```
+
+A cold cache costs about 5 seconds of browser time per storefront; warm crawls
+finish in about 2 seconds.
+
 Developing
 -----------
 
@@ -33,6 +90,13 @@ Install pre-commit hooks to ensure code quality checks and style checks
 
 ```shell
 make install_hooks
+```
+
+Run the tests. They cover the bot-challenge handling, which is awkward to
+exercise against the live site because Amazon only challenges intermittently:
+
+```shell
+make test
 ```
 
 Then see `Configuration` section
@@ -44,8 +108,11 @@ Replace `.env.example` with real `.env`, changing placeholders
 
 ```
 SECRET_KEY=changeme
-SCRAPYRT_URL=http://scrapyrt:7800/crawl.json
+SCRAPYRT_URL=http://127.0.0.1:7800/crawl.json
 ```
+
+`SCRAPYRT_URL` above is for running the API on the host. Docker Compose overrides
+it with the `scrapyrt` service hostname, so the same `.env` works for both.
 
 Local install
 -------------
@@ -54,6 +121,14 @@ Setup and activate a python3 virtualenv via your preferred method. e.g. and inst
 
 ```shell
 make ve
+```
+
+This also downloads the Chromium build that Playwright uses to solve the WAF
+challenge. Installing requirements without `make ve` needs it done explicitly:
+
+```shell
+pip install -r requirements.txt
+playwright install chromium
 ```
 
 For remove virtualenv:
@@ -76,6 +151,9 @@ For changing country:
 ```shell
 scrapy crawl amazon:outside-delivery-session -a country=US -a delivery_country=FR
 ```
+
+The first crawl against a given storefront launches a browser to solve the WAF
+challenge and takes a few seconds longer than the ones that follow.
 
 Run using local ScrapyRT service:
 
@@ -134,13 +212,37 @@ ScrapyRT response example:
     "spider_name": "amazon:location-session"
 }
 ```
+
+Run the API on the host, in a second shell, with ScrapyRT already running:
+
+```shell
+make runserver
+```
+
+Swagger UI is served at the root, `http://127.0.0.1:8000/`. Note that
+`country_code` is validated against `US`, `UK`, `GB`, `DE`, `ES`, `IT`, `FR` and
+must be uppercase — lowercase returns `422`.
+
 #### Run in Docker:
 
 Run docker containers:
 
 ```shell
-make docker_up
+make docker_build
 ```
+
+`make docker_up` is enough once the images are built.
+
+The image ships a Chromium headless shell for the WAF challenge, which puts it at
+roughly 1.1GB — most of that is the browser itself. It is built on `python:3.12-slim`
+with `playwright install --only-shell`; using the full `python:3.12` and the full
+Chromium build instead costs about 1.7GB more, for an X11 and GTK stack that a
+headless run never touches. Alpine is not an option here: Playwright's browser
+builds are linked against glibc.
+
+The `.waf_cache` directory lives inside the container and is lost on
+`docker compose down`, so the first request per storefront pays for a browser run
+again — mount it as a volume if that matters.
 
 Run using dockerized API service:
 
@@ -198,6 +300,13 @@ Docker API response example for changed **country**:
 
 How to use?
 -------------
+
+The cookies below are replayed against Amazon by a plain `requests` client. That
+client is subject to the same bot defences described in
+[How it works](#how-it-works): the returned session cookies usually pass on their
+own, but a request that gets challenged comes back as a `202` with an
+`x-amzn-waf-action` header, or as a ~2KB page with no `glow-ingress-line2` in it.
+Treat both as "retry", not as "the location did not stick".
 
 Check extracted amazon location cookies from python script:
 

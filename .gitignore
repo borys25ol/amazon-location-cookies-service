@@ -11,3 +11,4 @@ logs
 .vscode
 .coverage
 /logs
+.waf_cache

@@ -2,6 +2,7 @@ ve:
 	python3 -m venv .ve; \
 	. .ve/bin/activate; \
 	pip install -r requirements.txt; \
+	playwright install chromium; \
 
 clean:
 	test -d .ve && rm -rf .ve
@@ -43,6 +44,9 @@ install_hooks:
 
 run_hooks:
 	pre-commit run --all-files
+
+test:
+	pytest tests
 
 style:
 	flake8 main && isort main --diff && black main --check
