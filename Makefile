@@ -49,7 +49,7 @@ test:
 	pytest tests
 
 style:
-	flake8 main && isort main --diff && black main --check
+	flake8 main tests && isort main tests --diff && black main tests --check
 
 types:
 	mypy --namespace-packages -p "main" --config-file setup.cfg
