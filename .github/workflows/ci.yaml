@@ -1,7 +1,11 @@
-name: Run code style check
+name: CI
 
 on:
   pull_request:
+    branches:
+      - master
+
+  push:
     branches:
       - master
 
@@ -27,3 +31,7 @@ jobs:
 
       - name: Types checking
         run: make types
+
+      # The suite stubs out every network call, so no browser is needed here.
+      - name: Tests
+        run: make test
