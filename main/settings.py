@@ -6,6 +6,20 @@ NEWSPIDER_MODULE = "main.spiders"
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
 
+# Amazon's Akamai edge fingerprints the TLS handshake, and Scrapy's default
+# cipher list is distinctive enough to get non-US storefronts blocked outright:
+# amazon.co.uk answers a 4KB block page instead of the storefront, while the same
+# request from a plain `requests` client sails through. Offering Chrome's cipher
+# suite in Chrome's order is what makes the difference -- the effect is easy to
+# miss locally, since it depends on the OpenSSL build underneath.
+DOWNLOADER_CLIENT_TLS_CIPHERS = (
+    "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:"
+    "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:"
+    "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:"
+    "ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:"
+    "AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA"
+)
+
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/99.0.4844.83 Safari/537.36"
