@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 RUN mkdir /code
 WORKDIR /code
@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install --with-deps --only-shell chromium \
     && rm -rf /var/lib/apt/lists/*
 
-COPY .env scrapy.cfg ./
+# `.env` is deliberately not copied: it is gitignored, so the image cannot be
+# built from a clean checkout, and baking a SECRET_KEY into a layer is a poor
+# idea besides. Compose passes it in at run time instead.
+COPY scrapy.cfg ./
 
 COPY main main/
