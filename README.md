@@ -12,157 +12,173 @@ Amazon Location Cookies
 
 ## Description
 
-This project can be used to get Amazon location cookies from specific Amazon `zip-code` and country-specific domains like `.de`, `.co.uk`, etc.
+This service gets Amazon cookies that set a delivery location. You give it a zip
+code or a delivery country. It gives you the cookies.
 
-It will be very helpful when you are using random geolocation proxies for scraping data from Amazon because Amazon returns content based on user IP.
+Amazon shows different content for different locations. Amazon selects the
+location from the IP address of the client. If you use proxy servers in other
+countries, these cookies set the location that Amazon uses.
 
-Tested location at the moment:
-- US (30322)
-- ES (28010)
-- UK (E1 6AN)
-- DE (80686)
-- IT (20162)
-- FR (75001)
+These sites and locations are tested:
 
-Also, there is the ability to change `delivery country` (ship outside the current county) for example delivery from the US (`.com`) to the France (`FR`).
+| Country code | Amazon site     | Example zip code |
+|--------------|-----------------|------------------|
+| `US`         | `amazon.com`    | 30322            |
+| `UK`, `GB`   | `amazon.co.uk`  | E1 6AN           |
+| `DE`         | `amazon.de`     | 80686            |
+| `ES`         | `amazon.es`     | 28010            |
+| `IT`         | `amazon.it`     | 20162            |
+| `FR`         | `amazon.fr`     | 75001            |
 
-There no restrictions for choosing "outside country". You can choose whatever you want (if it available on Amazon).
+The service can also set a delivery country that is different from the country
+of the site. For example, it can set delivery from the US site to France. You
+can use all the countries that Amazon delivers to.
 
-How it works
-------------
+How the service operates
+------------------------
 
-Each crawl walks the same three requests Amazon's own "Deliver to" widget makes:
+For each location, the service sends the same three requests as the
+"Deliver to" control of Amazon:
 
-1. `GET /` — read the `glowValidationToken` out of the storefront HTML.
-2. `GET /portal-migration/hz/glow/get-rendered-address-selections` — read the `CSRF_TOKEN`.
-3. `POST /portal-migration/hz/glow/address-change` — set the location and keep the resulting cookies.
+1. `GET /` — the service reads the `glowValidationToken` value from the HTML.
+2. `GET /portal-migration/hz/glow/get-rendered-address-selections` — the service
+   reads the `CSRF_TOKEN` value.
+3. `POST /portal-migration/hz/glow/address-change` — the service sets the
+   location. Then it keeps the cookies from the response.
 
-### Getting past the AWS WAF challenge
+### How the service gets through the AWS WAF challenge
 
-Amazon fronts its storefronts with an AWS WAF Bot Control challenge. A plain HTTP
-client never reaches step 1: it gets `202` with an `x-amzn-waf-action: challenge`
-header and a ~2KB stub page that loads `challenge.js`, instead of the storefront.
-Neither browser-like headers nor TLS fingerprint impersonation are enough on their
-own — the challenge script has to actually run.
+Amazon protects each site with an AWS WAF Bot Control challenge. A usual HTTP
+client cannot complete step 1. Amazon sends a `202` response with an
+`x-amzn-waf-action: challenge` header. The response contains a small page of
+approximately 2 KB that loads `challenge.js`. Amazon does not send the site page.
 
-So a headless Chromium runs it once. The browser is handed an `aws-waf-token`
-cookie that stays valid for roughly four days and is fully replayable from an
-ordinary HTTP client, so the token is harvested, cached on disk, and attached to
-the spider's requests. Only a cache miss pays for a browser launch; everything
-after that is a normal Scrapy request.
+Browser headers are not sufficient. TLS fingerprint impersonation is also not
+sufficient. A program must execute the challenge script.
 
-Three consequences worth knowing about:
+Therefore the service starts a headless Chromium browser one time. Amazon gives
+an `aws-waf-token` cookie to that browser. A usual HTTP client can then use this
+cookie. The service keeps the cookie on the disk. Only the first request starts
+a browser. All the subsequent requests are usual Scrapy requests.
 
-- **The user agent is part of the deal.** The token is issued against the browser
-  that solved the challenge, and replaying it under a different user agent gets
-  challenged again. Every request in the flow reuses the harvested user agent,
-  which is why spiders build headers through `build_headers()` instead of using
-  `HEADERS` directly.
-- **Cached tokens go stale unpredictably.** The cookie advertises a ~4 day
-  expiry, but Amazon stops honouring tokens well before that — sometimes within
-  the hour. A crawl that gets challenged therefore throws its token away,
-  harvests a new one and asks again, up to three times, rather than failing. This
-  retry is what actually keeps things working; the cache TTL is only there to
-  avoid pointless browser launches.
-- **Not every visit goes through the WAF.** Some sessions land on an Akamai Bot
-  Manager edge instead, which answers `200` with a ~2KB interstitial that sets
-  `ak_bmsc` and meta-refreshes to `/?bm-verify=...`. Scrapy's
-  `MetaRefreshMiddleware` follows that redirect and usually ends up on the real
-  storefront; if it does not, the interstitial is treated as a challenge and
-  retried like any other. The harvest itself prefers the WAF branch, because that
-  is the one that produces a token worth caching.
+Three effects of this design are important:
 
-### WAF token cache
+- **The token operates with one user agent only.** Amazon gives the token to the
+  browser that completed the challenge. If you send the token with a different
+  user agent, Amazon sends the challenge again. Thus all the requests use the
+  same user agent. The spiders make their headers with `build_headers()`. Do not
+  use `HEADERS` directly.
+- **A token becomes invalid at an unknown time.** The cookie shows an expiry
+  time of approximately 4 days. But Amazon frequently refuses the token much
+  sooner, sometimes in less than one hour. If Amazon sends a challenge, the
+  spider discards the token, gets a new token, and sends the request again. The
+  spider does this two times as a maximum. This procedure keeps the service
+  operational. The cache time limit only prevents unnecessary browser starts.
+- **Amazon does not use the WAF for all the requests.** Some sessions go to an
+  Akamai Bot Manager server. That server sends a `200` response with a small
+  page of approximately 2 KB. The page sets an `ak_bmsc` cookie and has a meta
+  refresh to `/?bm-verify=...`. The `MetaRefreshMiddleware` of Scrapy obeys the
+  refresh and usually gets the correct page. If it does not, the spider uses the
+  same retry procedure. The browser procedure tries to get a WAF token, because
+  only a WAF token is useful in the cache.
 
-Tokens live in `.waf_cache/<host>.json` (gitignored) and are refreshed after an
-hour. Point `WAF_CACHE_DIR` somewhere else to relocate them, or force a fresh
-harvest with:
+### The WAF token cache
+
+The service keeps the tokens in `.waf_cache/<host>.json`. Git ignores this
+directory. The service gets a new token after one hour.
+
+To keep the tokens in a different directory, set the `WAF_CACHE_DIR` variable.
+To remove all the tokens, use this command:
 
 ```shell
 rm -rf .waf_cache
 ```
 
-A cold cache costs about 5 seconds of browser time per storefront; warm crawls
-finish in about 2 seconds.
+If the cache is empty, each site needs approximately 5 seconds more for the
+browser. If the cache contains a token, a request needs approximately 2 seconds.
 
-Developing
+Development
 -----------
 
-Install pre-commit hooks to ensure code quality checks and style checks
+To install the pre-commit hooks, use this command:
 
 ```shell
 make install_hooks
 ```
 
-Run the tests. They cover the bot-challenge handling, which is awkward to
-exercise against the live site because Amazon only challenges intermittently:
+To run the tests, use this command:
 
 ```shell
 make test
 ```
 
-Then see `Configuration` section
+The tests examine the bot challenge procedures. It is difficult to examine these
+procedures against the Amazon sites, because Amazon does not send a challenge
+for all the requests.
+
+Then read the `Configuration` section.
 
 Configuration
---------------
+-------------
 
-Replace `.env.example` with real `.env`, changing placeholders
+Copy `.env.example` to `.env` and replace the values:
 
 ```
 SECRET_KEY=changeme
 SCRAPYRT_URL=http://127.0.0.1:7800/crawl.json
 ```
 
-`SCRAPYRT_URL` above is for running the API on the host. Docker Compose overrides
-it with the `scrapyrt` service hostname, so the same `.env` works for both.
+This `SCRAPYRT_URL` value is correct for the API on your computer. Docker
+Compose replaces the value with the name of the `scrapyrt` service. Thus the
+same `.env` file is correct for the two conditions.
 
-Local install
--------------
+Installation on your computer
+-----------------------------
 
-Build the virtualenv and install production requirements:
+To make the virtual environment and install the requirements, use this command:
 
 ```shell
 make ve
 ```
 
-This needs [uv](https://docs.astral.sh/uv/getting-started/installation/). It
-reads the interpreter from `.python-version`, fetching it if the machine does
-not have it, so the local environment matches the one the image ships rather
-than whatever `python3` happens to point at. It also downloads the Chromium
-build Playwright uses to solve the WAF challenge.
+This command needs [uv](https://docs.astral.sh/uv/getting-started/installation/).
+uv reads the Python version from `.python-version`. If your computer does not
+have that version, uv gets it. Thus your environment agrees with the Docker
+image. It does not use the version that `python3` refers to. The command also
+gets the Chromium browser for Playwright.
 
-Without `make ve`, both steps have to be done by hand:
+If you do not use `make ve`, do the two steps manually:
 
 ```shell
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-For remove virtualenv:
+To remove the virtual environment, use this command:
 
 ```shell
 make clean
 ```
 
-Local run
--------------
+How to run the service on your computer
+---------------------------------------
 
-For changing location:
+To set a location, use this command:
 
 ```shell
 scrapy crawl amazon:location-delivery-session -a country=US -a zip_code=30322
 ```
 
-For changing country:
+To set a delivery country, use this command:
 
 ```shell
 scrapy crawl amazon:outside-delivery-session -a country=US -a delivery_country=FR
 ```
 
-The first crawl against a given storefront launches a browser to solve the WAF
-challenge and takes a few seconds longer than the ones that follow.
+The first request to each site starts a browser for the WAF challenge. Thus the
+first request needs some seconds more than the subsequent requests.
 
-Run using local ScrapyRT service:
+To use the local ScrapyRT service, use these commands:
 
 ```shell
 scrapyrt --ip 0.0.0.0 --port 7800
@@ -174,7 +190,7 @@ curl -X 'GET' \
  'http://0.0.0.0:7800/crawl.json?start_requests=1&spider_name=amazon:outside-delivery-session&crawl_args={"delivery_country":"FR","country":"US"}'
 ```
 
-ScrapyRT response example:
+This is an example of a ScrapyRT response:
 
 ```json
 {
@@ -220,38 +236,40 @@ ScrapyRT response example:
 }
 ```
 
-Run the API on the host, in a second shell, with ScrapyRT already running:
+ScrapyRT must be in operation before you start the API. Start the API in a
+second shell with this command:
 
 ```shell
 make runserver
 ```
 
-Swagger UI is served at the root, `http://127.0.0.1:8000/`. Note that
-`country_code` is validated against `US`, `UK`, `GB`, `DE`, `ES`, `IT`, `FR` and
-must be uppercase — lowercase returns `422`.
+The Swagger UI is at the root address, `http://127.0.0.1:8000/`. The
+`country_code` value must be `US`, `UK`, `GB`, `DE`, `ES`, `IT` or `FR`. Use
+capital letters only. Small letters cause a `422` error.
 
-#### Run in Docker:
+#### How to run the service in Docker
 
-Run docker containers:
+To make the images and start the containers, use this command:
 
 ```shell
 make docker_build
 ```
 
-`make docker_up` is enough once the images are built.
+If the images exist already, `make docker_up` is sufficient.
 
-The image ships a Chromium headless shell for the WAF challenge, which puts it at
-roughly 1.1GB — most of that is the browser itself. It is built on `python:3.12-slim`
-with `playwright install --only-shell`; using the full `python:3.12` and the full
-Chromium build instead costs about 1.7GB more, for an X11 and GTK stack that a
-headless run never touches. Alpine is not an option here: Playwright's browser
-builds are linked against glibc.
+The image contains a Chromium headless shell for the WAF challenge. Thus the
+image is approximately 1.1 GB, and the browser is the largest part. The image
+uses `python:3.14-slim` and the `playwright install --only-shell` command. The
+full `python:3.14` image and the full Chromium browser add approximately 1.7 GB.
+That additional space contains an X11 and GTK stack that a headless browser does
+not use. Alpine Linux is not possible, because the Playwright browsers need
+glibc.
 
-The `.waf_cache` directory lives inside the container and is lost on
-`docker compose down`, so the first request per storefront pays for a browser run
-again — mount it as a volume if that matters.
+The `.waf_cache` directory is inside the container. Docker deletes the directory
+with the `docker compose down` command. Thus the first request to each site
+starts a browser again. To keep the tokens, attach the directory as a volume.
 
-Run using dockerized API service:
+To use the API in Docker, use these commands:
 
 ```shell
 curl -X 'GET' \
@@ -263,7 +281,7 @@ curl -X 'GET' \
   -H 'accept: application/json'
 ```
 
-Docker API response example for changed **location**:
+This is an example of a response for a **location**:
 
 ```json
 {
@@ -284,7 +302,7 @@ Docker API response example for changed **location**:
 }
 ```
 
-Docker API response example for changed **country**:
+This is an example of a response for a **delivery country**:
 
 ```json
 {
@@ -305,10 +323,11 @@ Docker API response example for changed **country**:
 }
 ```
 
-How to use?
--------------
+How to use the cookies
+----------------------
 
-Two requests: ask the service for cookies, then send them to Amazon.
+Send two requests. First, ask the service for the cookies. Then send the cookies
+to Amazon.
 
 ```python
 import re
@@ -324,13 +343,13 @@ BROWSER_UA = (
 )
 PROXIES = {"https": "http://user:password@proxy.example.com:10080"}
 
-# 1. Ask the service for cookies pinned to a location.
+# 1. Ask the service for cookies that set a location.
 response = requests.get(
     url=API_URL, params={"zip_code": "30322", "country_code": "US"}
 )
 cookies = response.json()["data"]["cookies"]
 
-# 2. Use them. Amazon renders the delivery location in its "Deliver to" widget.
+# 2. Send the cookies. Amazon shows the location in its "Deliver to" control.
 page = requests.get(
     url=AMAZON_URL, cookies=cookies, headers={"user-agent": BROWSER_UA}, proxies=PROXIES
 )
@@ -342,31 +361,31 @@ print(location.group(1).replace("&zwnj;", "").strip())
 Atlanta 30322
 ```
 
-That is the whole integration. Loop over it only if you actually need several
-locations; nothing about the service requires one.
+This is the full procedure. Use a loop only if you need more than one location.
+The service does not need a loop.
 
-### What to change
+### What you can change
 
-| To change | Change this |
-|---|---|
-| The location | `zip_code`, and `country_code` to the matching storefront |
-| The storefront | `AMAZON_URL`, to the domain for that `country_code` |
-| Where you appear to browse from | `PROXIES` |
-| Delivery to another country instead of a zip code | See below |
+| To change this               | Change this value                                   |
+|------------------------------|-----------------------------------------------------|
+| The location                 | `zip_code`, and `country_code` for the correct site |
+| The Amazon site              | `AMAZON_URL`, for the same `country_code`           |
+| The apparent location of the client | `PROXIES`                                    |
+| A delivery country in place of a zip code | Read the next section              |
 
-`country_code` accepts `US`, `UK`, `GB`, `DE`, `ES`, `IT`, `FR`, uppercase, and
-maps to `amazon.com`, `.co.uk`, `.de`, `.es`, `.it`, `.fr`. Send the cookies to
-the same storefront they were issued for — cookies from `amazon.de` say nothing
-about `amazon.com`.
+Send the cookies to the same site that supplied them. Cookies from `amazon.de`
+are not applicable to `amazon.com`.
 
-The proxy is optional but is the reason this service exists: Amazon serves
-content by IP, so a geolocated proxy plus these cookies is what pins both ends.
-Requests from an address that has been scraping heavily get challenged, and then
-the check below fails no matter how good the cookies are.
+The proxy server is optional, but it is the primary reason for this service.
+Amazon selects content by IP address. A proxy server in the correct country and
+these cookies together set the two conditions. Amazon sends a challenge to an
+address that makes many requests. Then the procedure in the next section fails,
+and the quality of the cookies is not important.
 
-### Shipping outside the storefront's country
+### Delivery to a different country
 
-Same shape, different endpoint. Instead of a zip code, name the destination:
+The procedure is the same, but the endpoint is different. Give a destination
+country in place of a zip code:
 
 ```python
 response = requests.get(
@@ -375,21 +394,24 @@ response = requests.get(
 )
 ```
 
-Those cookies make `amazon.co.uk` quote delivery to Ukraine, and the widget then
-reads `Ukraine` rather than a postcode. Any destination Amazon offers will do.
+These cookies cause `amazon.co.uk` to show delivery to Ukraine. The control then
+shows `Ukraine` and not a zip code. You can use all the countries that Amazon
+delivers to.
 
-### When the location does not come back
+### If you do not get a location
 
-`location` is `None` whenever the page is not a storefront. That is not the same
-as the cookies having expired, and treating it that way will mislead you. Check
-which of these you got:
+The value of `location` is `None` for all the pages that are not the site page.
+This does not always mean that the cookies are too old. If you make that
+assumption, you get incorrect results. Examine the response and find the
+applicable condition:
 
-- **`202`, or an `x-amzn-waf-action` header** — an AWS WAF challenge. Your client
-  was turned away before Amazon looked at the cookies. Retry, ideally from
-  another address.
-- **A ~2KB page holding `bm-verify`** — an Akamai interstitial. It carries a
-  `<meta http-equiv="refresh">` pointing at the real storefront; following it
-  once, on the same session and with the same cookies, gets you through:
+- **A `202` status, or an `x-amzn-waf-action` header.** This is an AWS WAF
+  challenge. Amazon refused your client before it read the cookies. Send the
+  request again, if possible from a different address.
+- **A page of approximately 2 KB that contains `bm-verify`.** This is an Akamai
+  page. It contains a `<meta http-equiv="refresh">` element with the address of
+  the site page. Obey that refresh one time. Use the same session and the same
+  cookies:
 
   ```python
   from urllib.parse import urljoin
@@ -408,11 +430,12 @@ which of these you got:
       )
   ```
 
-- **A full storefront showing the wrong location** — this one really is a stale
-  session. Ask the service for fresh cookies.
+- **A complete site page with an incorrect location.** The cookies are too old.
+  Ask the service for new cookies.
 
-The service can answer this for you: `POST /api/v1/sessions/check` takes
-`country_code`, `cookies` and an optional `expected`, and replies with the
-location it sees plus a verdict, or `409` when a bot check got in the way rather
-than guessing. It checks from wherever the service runs, which is not
-necessarily where you will be using the cookies.
+The service can also do this examination. Send a `POST` request to
+`/api/v1/sessions/check` with `country_code`, `cookies` and an optional
+`expected` value. The service replies with the location that it finds and a
+result. If a bot challenge prevents the examination, the service replies with a
+`409` status and does not make an assumption. The service examines the cookies
+from its own address. That address can be different from your address.
