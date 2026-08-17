@@ -4,7 +4,7 @@ playwright==1.62.0
 pydantic==2.13.4
 pydantic-settings==2.2.1
 python-dotenv==1.2.2
-requests==2.31.0
+requests==2.34.2
 Scrapy==2.17.0
 scrapyrt==0.18.1
 uvicorn==0.27.1
