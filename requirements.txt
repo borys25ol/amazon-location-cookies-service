@@ -2,7 +2,7 @@ fastapi==0.141.1
 furl==2.1.4
 playwright==1.62.0
 pydantic==2.13.4
-pydantic-settings==2.2.1
+pydantic-settings==2.15.0
 python-dotenv==1.2.2
 requests==2.34.2
 Scrapy==2.17.0
